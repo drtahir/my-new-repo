@@ -32,13 +32,13 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
 
-      - name: Patch gradlew JVM memory
+      - name: Patch gradlew and wrapper
         run: |
+          # Fix JVM opts
           python3 << 'PYEOF'
           import re
           path = 'bc_project/android/gradlew'
           content = open(path).read()
-          # Replace with NO inner double quotes - clean format
           content = re.sub(
               r"DEFAULT_JVM_OPTS=.*",
               "DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'",
@@ -51,8 +51,22 @@ jobs:
           PYEOF
           chmod +x bc_project/android/gradlew
 
-      - name: Verify gradlew patch
-        run: grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
+          # Re-download wrapper jar to guarantee correct version
+          curl -L "https://github.com/gradle/gradle/raw/v8.3.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o bc_project/android/gradle/wrapper/gradle-wrapper.jar
+          
+          # Verify jar
+          ls -lh bc_project/android/gradle/wrapper/gradle-wrapper.jar
+          echo "Jar size in bytes: $(wc -c < bc_project/android/gradle/wrapper/gradle-wrapper.jar)"
+
+      - name: Verify setup
+        run: |
+          echo "=== gradlew JVM opts ==="
+          grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
+          echo "=== wrapper properties ==="
+          cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
+          echo "=== jar size ==="
+          ls -lh bc_project/android/gradle/wrapper/gradle-wrapper.jar
 
       - name: Get Flutter dependencies
         working-directory: bc_project
