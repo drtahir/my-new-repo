@@ -1,0 +1,59 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout your code ──────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Setup Java (required for Android build) ─────────────────────────
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ── 3. Setup Flutter ───────────────────────────────────────────────────
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+          cache: true
+
+      # ── 4. Get dependencies ────────────────────────────────────────────────
+      - name: Get Flutter packages
+        run: flutter pub get
+
+      # ── 5. Run code generation (Drift + Riverpod) ──────────────────────────
+      - name: Run build_runner
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      # ── 6. Build release APK ───────────────────────────────────────────────
+      - name: Build APK
+        run: flutter build apk --release
+
+      # ── 7. Upload APK as downloadable artifact ─────────────────────────────
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-finance-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      # ── 8. Show APK file size in logs ──────────────────────────────────────
+      - name: Show APK size
+        run: |
+          echo "✅ Build complete!"
+          ls -lh build/app/outputs/flutter-apk/app-release.apk
