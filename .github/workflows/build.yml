@@ -27,38 +27,45 @@ jobs:
           channel: stable
           cache: false
 
+      - name: Regenerate Android wrapper completely
+        run: |
+          # Delete ALL existing gradle wrapper files
+          rm -rf bc_project/android/gradle
+          rm -f bc_project/android/gradlew
+          rm -f bc_project/android/gradlew.bat
+
+          # Let Flutter regenerate them from scratch
+          cd bc_project
+          flutter build apk --debug 2>/dev/null || true
+
+          # Now fix the JVM opts in the freshly generated gradlew
+          python3 << 'PYEOF'
+          import re, os
+          path = 'android/gradlew'
+          if os.path.exists(path):
+              content = open(path).read()
+              content = re.sub(r"DEFAULT_JVM_OPTS=.*", "DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'", content)
+              open(path, 'w').write(content)
+              for line in content.split('\n'):
+                  if 'DEFAULT_JVM_OPTS' in line:
+                      print('PATCHED:', repr(line))
+          else:
+              print('gradlew not found at', path)
+              import subprocess
+              result = subprocess.run(['find', '.', '-name', 'gradlew'], capture_output=True, text=True)
+              print('Found gradlew at:', result.stdout)
+          PYEOF
+
+          # Verify
+          echo "=== gradlew JVM opts ==="
+          grep "DEFAULT_JVM_OPTS" android/gradlew || echo "NOT FOUND"
+          echo "=== jar exists ==="
+          ls -lh android/gradle/wrapper/ || echo "NO WRAPPER DIR"
+
       - name: Write local.properties
         run: |
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
-
-      - name: Setup Gradle wrapper
-        run: |
-          # Download gradle-wrapper.jar fresh
-          curl -L "https://github.com/gradle/gradle/raw/v8.3.0/gradle/wrapper/gradle-wrapper.jar" \
-            -o bc_project/android/gradle/wrapper/gradle-wrapper.jar
-          echo "Jar bytes: $(wc -c < bc_project/android/gradle/wrapper/gradle-wrapper.jar)"
-
-          # Fix gradlew JVM opts
-          python3 << 'PYEOF'
-          import re
-          path = 'bc_project/android/gradlew'
-          content = open(path).read()
-          content = re.sub(r"DEFAULT_JVM_OPTS=.*", "DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'", content)
-          open(path, 'w').write(content)
-          for line in content.split('\n'):
-              if 'DEFAULT_JVM_OPTS' in line:
-                  print('PATCHED:', repr(line))
-          PYEOF
-          chmod +x bc_project/android/gradlew
-
-          # Verify everything
-          echo "=== DEFAULT_JVM_OPTS ==="
-          grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
-          echo "=== wrapper properties ==="
-          cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
-          echo "=== jar size ==="
-          ls -lh bc_project/android/gradle/wrapper/gradle-wrapper.jar
 
       - name: Get Flutter dependencies
         working-directory: bc_project
