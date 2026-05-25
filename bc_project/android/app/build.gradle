@@ -4,7 +4,7 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 android {
-    namespace "com.example.bc_project"
+    namespace "com.devtahirbuneri.family_finance_zakat"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
     compileOptions {
@@ -15,7 +15,7 @@ android {
         jvmTarget = "1.8"
     }
     defaultConfig {
-        applicationId "com.example.bc_project"
+        applicationId "com.devtahirbuneri.family_finance_zakat"
         minSdk flutter.minSdkVersion
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
