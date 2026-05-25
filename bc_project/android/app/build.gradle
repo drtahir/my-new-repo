@@ -1,46 +1,33 @@
 plugins {
     id "com.android.application"
-    id "org.jetbrains.kotlin.android"
+    id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader("UTF-8") { reader ->
-        localProperties.load(reader)
-    }
-}
-
 android {
-    namespace "com.devtahirbuneri.family_finance_zakat"
-    compileSdk 34
+    namespace "com.example.bc_project"
+    compileSdk flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = "17"
-    }
-
-    sourceSets {
-        main.java.srcDirs += "src/main/kotlin"
+        jvmTarget = "1.8"
     }
 
     defaultConfig {
-        applicationId "com.devtahirbuneri.family_finance_zakat"
-        minSdk 23
-        targetSdk 34
-        versionCode localProperties.getProperty("flutter.versionCode")?.toInteger() ?: 1
-        versionName localProperties.getProperty("flutter.versionName") ?: "1.0"
-        multiDexEnabled true
+        applicationId "com.example.bc_project"
+        minSdk flutter.minSdkVersion
+        targetSdk flutter.targetSdkVersion
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
     }
 
     buildTypes {
         release {
-            minifyEnabled false
             signingConfig signingConfigs.debug
         }
     }
@@ -48,10 +35,4 @@ android {
 
 flutter {
     source "../.."
-}
-
-dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22"
-    implementation "androidx.multidex:multidex:2.0.1"
-    implementation "androidx.biometric:biometric:1.1.0"
 }
