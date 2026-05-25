@@ -23,49 +23,66 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.27.4'
           channel: stable
           cache: false
-
-      - name: Regenerate Android wrapper completely
-        run: |
-          # Delete ALL existing gradle wrapper files
-          rm -rf bc_project/android/gradle
-          rm -f bc_project/android/gradlew
-          rm -f bc_project/android/gradlew.bat
-
-          # Let Flutter regenerate them from scratch
-          cd bc_project
-          flutter build apk --debug 2>/dev/null || true
-
-          # Now fix the JVM opts in the freshly generated gradlew
-          python3 << 'PYEOF'
-          import re, os
-          path = 'android/gradlew'
-          if os.path.exists(path):
-              content = open(path).read()
-              content = re.sub(r"DEFAULT_JVM_OPTS=.*", "DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'", content)
-              open(path, 'w').write(content)
-              for line in content.split('\n'):
-                  if 'DEFAULT_JVM_OPTS' in line:
-                      print('PATCHED:', repr(line))
-          else:
-              print('gradlew not found at', path)
-              import subprocess
-              result = subprocess.run(['find', '.', '-name', 'gradlew'], capture_output=True, text=True)
-              print('Found gradlew at:', result.stdout)
-          PYEOF
-
-          # Verify
-          echo "=== gradlew JVM opts ==="
-          grep "DEFAULT_JVM_OPTS" android/gradlew || echo "NOT FOUND"
-          echo "=== jar exists ==="
-          ls -lh android/gradle/wrapper/ || echo "NO WRAPPER DIR"
 
       - name: Write local.properties
         run: |
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
+
+      - name: Replace gradle wrapper completely
+        run: |
+          # Download official gradle 8.9 wrapper jar
+          mkdir -p bc_project/android/gradle/wrapper
+
+          curl -fsSL "https://services.gradle.org/distributions/gradle-8.9-bin.zip" \
+            -o /tmp/gradle.zip
+          unzip -p /tmp/gradle.zip "gradle-8.9/lib/gradle-wrapper.jar" \
+            > bc_project/android/gradle/wrapper/gradle-wrapper.jar 2>/dev/null || \
+          curl -fsSL "https://github.com/gradle/gradle/raw/v8.9.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o bc_project/android/gradle/wrapper/gradle-wrapper.jar
+
+          echo "Jar size: $(wc -c < bc_project/android/gradle/wrapper/gradle-wrapper.jar)"
+
+          # Write clean wrapper properties
+          cat > bc_project/android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip
+          networkTimeout=10000
+          PROPS
+
+          # Write brand new clean gradlew
+          cat > bc_project/android/gradlew << 'GRADLEW'
+          #!/bin/sh
+          APP_NAME="Gradle"
+          APP_BASE_NAME=$(basename "$0")
+          DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'
+          MAX_FD=maximum
+          warn() { echo "$*"; }
+          die() { echo; echo "$*"; echo; exit 1; }
+          if [ "$APP_BASE_NAME" = ".." ]; then die "ERROR: Invalid application base name '$APP_BASE_NAME'."; fi
+          if [ -z "$JAVA_HOME" ]; then
+            JAVACMD=java
+          else
+            JAVACMD="$JAVA_HOME/bin/java"
+            if [ ! -x "$JAVACMD" ]; then die "ERROR: JAVA_HOME is set to '$JAVA_HOME', but \$JAVA_HOME/bin/java does not exist."; fi
+          fi
+          APP_HOME=$(cd "$(dirname "$0")" && pwd -P) || die "ERROR: Unable to determine current working directory."
+          CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+          exec "$JAVACMD" $DEFAULT_JVM_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+          GRADLEW
+
+          chmod +x bc_project/android/gradlew
+
+          echo "=== gradlew ==="
+          cat bc_project/android/gradlew
+          echo "=== jar size ==="
+          ls -lh bc_project/android/gradle/wrapper/
 
       - name: Get Flutter dependencies
         working-directory: bc_project
