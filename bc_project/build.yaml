@@ -1,0 +1,16 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # Generate type-safe queries
+          generate_connect_constructor: true
+          # Use named parameters for insertions
+          named_parameters: true
+          # Compact query methods
+          compact_query_methods: true
+          # Null safety
+          null_safety: true
+      riverpod_generator:
+        options:
+          riverpod_version: 2
