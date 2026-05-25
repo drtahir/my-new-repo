@@ -32,28 +32,14 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
 
-      - name: Setup Gradle completely
+      - name: Setup Gradle wrapper
         run: |
-          cd bc_project/android
-          
-          # Install gradle 8.3 directly via sdk
-          curl -L "https://services.gradle.org/distributions/gradle-8.3-bin.zip" \
-            -o /tmp/gradle-8.3-bin.zip
-          unzip -q /tmp/gradle-8.3-bin.zip -d /opt/gradle
-          export PATH="/opt/gradle/gradle-8.3/bin:$PATH"
-          echo "/opt/gradle/gradle-8.3/bin" >> $GITHUB_PATH
-          
-          # Download correct wrapper jar
+          # Download gradle-wrapper.jar fresh
           curl -L "https://github.com/gradle/gradle/raw/v8.3.0/gradle/wrapper/gradle-wrapper.jar" \
-            -o gradle/wrapper/gradle-wrapper.jar
-          
-          echo "Gradle version:"
-          /opt/gradle/gradle-8.3/bin/gradle --version
-          
-          echo "Jar bytes: $(wc -c < gradle/wrapper/gradle-wrapper.jar)"
+            -o bc_project/android/gradle/wrapper/gradle-wrapper.jar
+          echo "Jar bytes: $(wc -c < bc_project/android/gradle/wrapper/gradle-wrapper.jar)"
 
-      - name: Patch gradlew
-        run: |
+          # Fix gradlew JVM opts
           python3 << 'PYEOF'
           import re
           path = 'bc_project/android/gradlew'
@@ -65,7 +51,14 @@ jobs:
                   print('PATCHED:', repr(line))
           PYEOF
           chmod +x bc_project/android/gradlew
+
+          # Verify everything
+          echo "=== DEFAULT_JVM_OPTS ==="
           grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
+          echo "=== wrapper properties ==="
+          cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
+          echo "=== jar size ==="
+          ls -lh bc_project/android/gradle/wrapper/gradle-wrapper.jar
 
       - name: Get Flutter dependencies
         working-directory: bc_project
@@ -74,8 +67,6 @@ jobs:
       - name: Build Debug APK
         working-directory: bc_project
         run: flutter build apk --debug
-        env:
-          PATH: /opt/gradle/gradle-8.3/bin:${{ env.PATH }}
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
