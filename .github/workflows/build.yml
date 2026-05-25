@@ -10,6 +10,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      GRADLE_OPTS: ""
+      JAVA_TOOL_OPTIONS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,9 +40,22 @@ jobs:
         working-directory: bc_project
         run: flutter pub get
 
+      - name: Fix gradle.properties
+        run: |
+          cat > bc_project/android/gradle.properties << 'PROPS'
+          org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          android.useAndroidX=true
+          android.enableJetifier=true
+          PROPS
+
       - name: Build Debug APK
         working-directory: bc_project
-        run: flutter build apk --debug
+        run: flutter build apk --debug --verbose
+        env:
+          GRADLE_OPTS: ""
+          JAVA_TOOL_OPTIONS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
