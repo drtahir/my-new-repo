@@ -25,12 +25,33 @@ jobs:
         with:
           flutter-version: '3.24.0'
           channel: stable
-          cache: true
+          cache: false
 
       - name: Write local.properties
         run: |
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
+
+      - name: Patch gradlew JVM memory
+        run: |
+          python3 << 'PYEOF'
+          import re
+          path = 'bc_project/android/gradlew'
+          content = open(path).read()
+          content = re.sub(
+              r"DEFAULT_JVM_OPTS=.*",
+              "DEFAULT_JVM_OPTS='\"-Xmx4096m\" \"-Xms512m\"'",
+              content
+          )
+          open(path, 'w').write(content)
+          for line in content.split('\n'):
+              if 'DEFAULT_JVM_OPTS' in line:
+                  print('PATCHED:', repr(line))
+          PYEOF
+          chmod +x bc_project/android/gradlew
+
+      - name: Verify gradlew patch
+        run: grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
 
       - name: Get Flutter dependencies
         working-directory: bc_project
