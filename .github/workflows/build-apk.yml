@@ -33,26 +33,29 @@ jobs:
           channel: 'stable'
 
       - name: Get Flutter dependencies
+        working-directory: bc-project
         run: flutter pub get
 
       - name: Build Debug APK
+        working-directory: bc-project
         run: flutter build apk --debug
 
       - name: Build Release APK
+        working-directory: bc-project
         run: flutter build apk --release
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: bc-project/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 30
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: bc-project/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
 
       - name: Create Release
@@ -60,7 +63,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build/app/outputs/flutter-apk/app-debug.apk
-            build/app/outputs/flutter-apk/app-release.apk
+            bc-project/build/app/outputs/flutter-apk/app-debug.apk
+            bc-project/build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
