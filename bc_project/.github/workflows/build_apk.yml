@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,18 +13,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout your code ──────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Setup Java (required for Android build) ─────────────────────────
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # ── 3. Setup Flutter ───────────────────────────────────────────────────
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -32,28 +29,32 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # ── 4. Get dependencies ────────────────────────────────────────────────
+      - name: Create local.properties
+        working-directory: bc_project/android
+        run: |
+          echo "flutter.sdk=$FLUTTER_ROOT" > local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
+
       - name: Get Flutter packages
+        working-directory: bc_project
         run: flutter pub get
 
-      # ── 5. Run code generation (Drift + Riverpod) ──────────────────────────
       - name: Run build_runner
+        working-directory: bc_project
         run: dart run build_runner build --delete-conflicting-outputs
 
-      # ── 6. Build release APK ───────────────────────────────────────────────
       - name: Build APK
-        run: flutter build apk --release
+        working-directory: bc_project
+        run: flutter build apk --debug
 
-      # ── 7. Upload APK as downloadable artifact ─────────────────────────────
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: family-finance-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: family-finance-debug-apk
+          path: bc_project/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 30
 
-      # ── 8. Show APK file size in logs ──────────────────────────────────────
       - name: Show APK size
         run: |
           echo "✅ Build complete!"
-          ls -lh build/app/outputs/flutter-apk/app-release.apk
+          ls -lh bc_project/build/app/outputs/flutter-apk/app-debug.apk
