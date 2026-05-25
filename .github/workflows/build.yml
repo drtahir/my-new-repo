@@ -32,61 +32,32 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
 
-      - name: Replace gradle wrapper completely
+      - name: Setup Gradle wrapper
         run: |
-          # Download official gradle 8.9 wrapper jar
           mkdir -p bc_project/android/gradle/wrapper
-
-          curl -fsSL "https://services.gradle.org/distributions/gradle-8.9-bin.zip" \
-            -o /tmp/gradle.zip
-          unzip -p /tmp/gradle.zip "gradle-8.9/lib/gradle-wrapper.jar" \
-            > bc_project/android/gradle/wrapper/gradle-wrapper.jar 2>/dev/null || \
           curl -fsSL "https://github.com/gradle/gradle/raw/v8.9.0/gradle/wrapper/gradle-wrapper.jar" \
             -o bc_project/android/gradle/wrapper/gradle-wrapper.jar
-
           echo "Jar size: $(wc -c < bc_project/android/gradle/wrapper/gradle-wrapper.jar)"
-
-          # Write clean wrapper properties
-          cat > bc_project/android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip
-          networkTimeout=10000
-          PROPS
-
-          # Write brand new clean gradlew
-          cat > bc_project/android/gradlew << 'GRADLEW'
-          #!/bin/sh
-          APP_NAME="Gradle"
-          APP_BASE_NAME=$(basename "$0")
-          DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'
-          MAX_FD=maximum
-          warn() { echo "$*"; }
-          die() { echo; echo "$*"; echo; exit 1; }
-          if [ "$APP_BASE_NAME" = ".." ]; then die "ERROR: Invalid application base name '$APP_BASE_NAME'."; fi
-          if [ -z "$JAVA_HOME" ]; then
-            JAVACMD=java
-          else
-            JAVACMD="$JAVA_HOME/bin/java"
-            if [ ! -x "$JAVACMD" ]; then die "ERROR: JAVA_HOME is set to '$JAVA_HOME', but \$JAVA_HOME/bin/java does not exist."; fi
-          fi
-          APP_HOME=$(cd "$(dirname "$0")" && pwd -P) || die "ERROR: Unable to determine current working directory."
-          CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
-          exec "$JAVACMD" $DEFAULT_JVM_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
-          GRADLEW
-
+          python3 << 'PYEOF'
+          import re
+          path = 'bc_project/android/gradlew'
+          content = open(path).read()
+          content = re.sub(r"DEFAULT_JVM_OPTS=.*", "DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'", content)
+          open(path, 'w').write(content)
+          for line in content.split('\n'):
+              if 'DEFAULT_JVM_OPTS' in line:
+                  print('PATCHED:', repr(line))
+          PYEOF
           chmod +x bc_project/android/gradlew
-
-          echo "=== gradlew ==="
-          cat bc_project/android/gradlew
-          echo "=== jar size ==="
-          ls -lh bc_project/android/gradle/wrapper/
+          grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
 
       - name: Get Flutter dependencies
         working-directory: bc_project
         run: flutter pub get
+
+      - name: Run code generation
+        working-directory: bc_project
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build Debug APK
         working-directory: bc_project
