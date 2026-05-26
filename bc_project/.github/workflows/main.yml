@@ -3,8 +3,6 @@ name: Flutter Build
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
 
 jobs:
   build:
@@ -12,23 +10,29 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: ⚠️ Remove old Flutter completely
+        run: |
+          sudo rm -rf /opt/hostedtoolcache/flutter
+          rm -rf ~/.pub-cache
+          rm -rf ~/.flutter
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
       
-      - name: Setup Flutter
+      - name: ☄️ Install Flutter 3.27.4 (no cache)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.4'
           channel: 'stable'
-          cache: true
+          cache: false
       
-      - name: Verify Flutter version
+      - name: ✅ Verify correct Flutter version
         run: flutter --version
       
-      - name: Build APK
+      - name: 🏗️ Build APK
         run: |
           cd bc_project
           flutter clean
