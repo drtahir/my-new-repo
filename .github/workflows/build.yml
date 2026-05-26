@@ -32,28 +32,63 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
 
-      - name: Patch all gradlew files
+      - name: Replace Flutter internal gradlew with modern version
         run: |
-          echo "=== Finding all gradlew files ==="
-          find $FLUTTER_ROOT -name "gradlew" 2>/dev/null
-          find bc_project -name "gradlew" 2>/dev/null
+          FLUTTER_GRADLEW="$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradlew"
 
-          echo "=== Patching ALL gradlew files found ==="
-          for f in $(find $FLUTTER_ROOT -name "gradlew" 2>/dev/null) $(find bc_project -name "gradlew" 2>/dev/null); do
-            echo "Patching: $f"
-            sed -i 's/DEFAULT_JVM_OPTS=.*/DEFAULT_JVM_OPTS='"'"'-Xmx4096m -Xms512m'"'"'/' "$f"
-            chmod +x "$f"
-            grep "DEFAULT_JVM_OPTS" "$f"
-          done
+          echo "=== OLD Flutter gradlew ==="
+          cat "$FLUTTER_GRADLEW"
 
-          echo "=== Setting up wrapper jar ==="
+          # Write modern gradlew that works with Java 17
+          cat > "$FLUTTER_GRADLEW" << 'GRADLEW'
+#!/bin/sh
+APP_NAME="Gradle"
+APP_BASE_NAME=`basename "$0"`
+DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'
+MAX_FD="maximum"
+
+warn() {
+    echo "$*"
+}
+
+die() {
+    echo
+    echo "$*"
+    echo
+    exit 1
+}
+
+if [ -z "$JAVA_HOME" ]; then
+    JAVACMD="java"
+else
+    JAVACMD="$JAVA_HOME/bin/java"
+fi
+
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+CLASSPATH="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.jar"
+
+exec "$JAVACMD" $DEFAULT_JVM_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+GRADLEW
+
+          chmod +x "$FLUTTER_GRADLEW"
+
+          echo "=== NEW Flutter gradlew ==="
+          cat "$FLUTTER_GRADLEW"
+
+          # Also replace project gradlew
+          cp "$FLUTTER_GRADLEW" bc_project/android/gradlew
+          chmod +x bc_project/android/gradlew
+
+          # Setup wrapper jar
           mkdir -p bc_project/android/gradle/wrapper
-          FLUTTER_JAR=$(find $FLUTTER_ROOT -name "gradle-wrapper.jar" 2>/dev/null | head -1)
-          echo "Flutter jar: $FLUTTER_JAR"
-          cp "$FLUTTER_JAR" bc_project/android/gradle/wrapper/gradle-wrapper.jar
-          cp "$(find $FLUTTER_ROOT -name "gradle-wrapper.properties" 2>/dev/null | head -1)" \
+          cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.jar" \
+             bc_project/android/gradle/wrapper/gradle-wrapper.jar
+          cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.properties" \
              bc_project/android/gradle/wrapper/gradle-wrapper.properties
+
+          echo "=== Verification ==="
           ls -lh bc_project/android/gradle/wrapper/
+          cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Get Flutter dependencies
         working-directory: bc_project
