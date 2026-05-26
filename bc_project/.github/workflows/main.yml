@@ -9,29 +9,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
-      - name: ⚠️ Remove old Flutter completely
+
+      - name: 🧹 Nuclear cleanup (remove ALL Flutter caches)
         run: |
           sudo rm -rf /opt/hostedtoolcache/flutter
+          sudo rm -rf /usr/local/flutter
           rm -rf ~/.pub-cache
           rm -rf ~/.flutter
+          echo "FLUTTER_ROOT=" >> $GITHUB_ENV
+          echo "PUB_CACHE=" >> $GITHUB_ENV
 
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-      
-      - name: ☄️ Install Flutter 3.27.4 (no cache)
+
+      - name: 🚀 Install Flutter 3.27.4 (fresh, no cache)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.4'
           channel: 'stable'
           cache: false
-      
-      - name: ✅ Verify correct Flutter version
-        run: flutter --version
-      
+
+      - name: 🔍 Force verify correct Flutter version
+        run: |
+          which flutter
+          flutter --version
+          echo "✅ Flutter version: $(flutter --version | grep -oP 'Flutter \K[0-9.]+')"
+
       - name: 🏗️ Build APK
         run: |
           cd bc_project
