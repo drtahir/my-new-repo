@@ -27,71 +27,33 @@ jobs:
           channel: stable
           cache: false
 
-      - name: Patch Flutter internal gradle wrapper
-        run: |
-          # This is where Flutter actually reads the wrapper from
-          FLUTTER_WRAPPER_DIR="$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper"
-          echo "=== Flutter wrapper dir ==="
-          ls -la "$FLUTTER_WRAPPER_DIR" 2>/dev/null || echo "DIR NOT FOUND"
-          find "$FLUTTER_ROOT/bin/cache" -name "gradle-wrapper.jar" 2>/dev/null
-          find "$FLUTTER_ROOT/bin/cache" -name "gradlew" 2>/dev/null
-
-          # Patch Flutter's own gradlew
-          FLUTTER_GRADLEW=$(find "$FLUTTER_ROOT/bin/cache" -name "gradlew" 2>/dev/null | head -1)
-          if [ -n "$FLUTTER_GRADLEW" ]; then
-            echo "=== Patching Flutter's gradlew: $FLUTTER_GRADLEW ==="
-            grep "DEFAULT_JVM_OPTS" "$FLUTTER_GRADLEW"
-            python3 << 'PYEOF'
-import re, os, sys
-path = os.environ.get('FLUTTER_GRADLEW', '')
-
-# Find via shell env
-import subprocess
-result = subprocess.run(
-    ['find', os.environ['FLUTTER_ROOT'] + '/bin/cache', '-name', 'gradlew'],
-    capture_output=True, text=True
-)
-paths = result.stdout.strip().split('\n')
-print("Found gradlew files:", paths)
-
-for path in paths:
-    if path and os.path.exists(path):
-        content = open(path).read()
-        new_content = re.sub(r"DEFAULT_JVM_OPTS=.*", "DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'", content)
-        open(path, 'w').write(new_content)
-        for line in new_content.split('\n'):
-            if 'DEFAULT_JVM_OPTS' in line:
-                print(f'PATCHED {path}:', repr(line))
-PYEOF
-          else
-            echo "Flutter gradlew not found in cache, searching more..."
-            find "$FLUTTER_ROOT" -name "gradlew" 2>/dev/null
-          fi
-
-          # Also patch our project's gradlew
-          python3 << 'PYEOF'
-          import re
-          path = 'bc_project/android/gradlew'
-          content = open(path).read()
-          content = re.sub(r"DEFAULT_JVM_OPTS=.*", "DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'", content)
-          open(path, 'w').write(content)
-          for line in content.split('\n'):
-              if 'DEFAULT_JVM_OPTS' in line:
-                  print('Project PATCHED:', repr(line))
-          PYEOF
-          chmod +x bc_project/android/gradlew
-
-          # Copy Flutter's jar to our project
-          mkdir -p bc_project/android/gradle/wrapper
-          FLUTTER_JAR=$(find $FLUTTER_ROOT -name "gradle-wrapper.jar" 2>/dev/null | head -1)
-          cp "$FLUTTER_JAR" bc_project/android/gradle/wrapper/gradle-wrapper.jar
-          cp "$(find $FLUTTER_ROOT -name "gradle-wrapper.properties" 2>/dev/null | head -1)" \
-             bc_project/android/gradle/wrapper/gradle-wrapper.properties
-
       - name: Write local.properties
         run: |
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
+
+      - name: Patch all gradlew files
+        run: |
+          echo "=== Finding all gradlew files ==="
+          find $FLUTTER_ROOT -name "gradlew" 2>/dev/null
+          find bc_project -name "gradlew" 2>/dev/null
+
+          echo "=== Patching ALL gradlew files found ==="
+          for f in $(find $FLUTTER_ROOT -name "gradlew" 2>/dev/null) $(find bc_project -name "gradlew" 2>/dev/null); do
+            echo "Patching: $f"
+            sed -i 's/DEFAULT_JVM_OPTS=.*/DEFAULT_JVM_OPTS='"'"'-Xmx4096m -Xms512m'"'"'/' "$f"
+            chmod +x "$f"
+            grep "DEFAULT_JVM_OPTS" "$f"
+          done
+
+          echo "=== Setting up wrapper jar ==="
+          mkdir -p bc_project/android/gradle/wrapper
+          FLUTTER_JAR=$(find $FLUTTER_ROOT -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+          echo "Flutter jar: $FLUTTER_JAR"
+          cp "$FLUTTER_JAR" bc_project/android/gradle/wrapper/gradle-wrapper.jar
+          cp "$(find $FLUTTER_ROOT -name "gradle-wrapper.properties" 2>/dev/null | head -1)" \
+             bc_project/android/gradle/wrapper/gradle-wrapper.properties
+          ls -lh bc_project/android/gradle/wrapper/
 
       - name: Get Flutter dependencies
         working-directory: bc_project
