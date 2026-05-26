@@ -35,8 +35,42 @@ jobs:
       - name: Setup Gradle wrapper
         run: |
           mkdir -p bc_project/android/gradle/wrapper
-          curl -fsSL "https://github.com/gradle/gradle/raw/v8.9.0/gradle/wrapper/gradle-wrapper.jar" \
-            -o bc_project/android/gradle/wrapper/gradle-wrapper.jar
+
+          # Try multiple sources for the jar
+          JAR="bc_project/android/gradle/wrapper/gradle-wrapper.jar"
+
+          echo "Attempting download from gradle.org zip..."
+          curl -fsSL "https://services.gradle.org/distributions/gradle-8.9-bin.zip" \
+            -o /tmp/gradle-8.9.zip && \
+          unzip -o /tmp/gradle-8.9.zip "gradle-8.9/lib/gradle-wrapper-*.jar" -d /tmp/gradle-extract/ 2>/dev/null && \
+          find /tmp/gradle-extract -name "*.jar" | head -5 && \
+          cp $(find /tmp/gradle-extract -name "gradle-wrapper-*.jar" | head -1) "$JAR" 2>/dev/null || \
+          echo "zip extraction failed, trying direct download..."
+
+          # If jar still not valid, try direct GitHub raw
+          if [ ! -s "$JAR" ]; then
+            echo "Trying GitHub raw..."
+            curl -fsSL "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" \
+              -o "$JAR"
+          fi
+
+          # If still not valid, use Flutter's own wrapper jar
+          if [ ! -s "$JAR" ]; then
+            echo "Using Flutter's bundled wrapper jar..."
+            FLUTTER_JAR=$(find $FLUTTER_ROOT -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+            echo "Flutter jar: $FLUTTER_JAR"
+            if [ -n "$FLUTTER_JAR" ]; then
+              cp "$FLUTTER_JAR" "$JAR"
+            fi
+          fi
+
+          echo "Final jar size: $(wc -c < $JAR) bytes"
+          file "$JAR"
+
+          # Verify it's a valid zip/jar
+          unzip -t "$JAR" > /dev/null 2>&1 && echo "JAR is valid" || echo "JAR IS CORRUPT"
+
+          # Fix gradlew JVM opts
           python3 << 'PYEOF'
           import re
           path = 'bc_project/android/gradlew'
@@ -48,7 +82,21 @@ jobs:
                   print('PATCHED:', repr(line))
           PYEOF
           chmod +x bc_project/android/gradlew
+
+          # Fix wrapper properties
+          cat > bc_project/android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip
+          networkTimeout=10000
+          PROPS
+
+          echo "=== Final verification ==="
           grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
+          ls -lh bc_project/android/gradle/wrapper/
+          cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Get Flutter dependencies
         working-directory: bc_project
@@ -57,13 +105,6 @@ jobs:
       - name: Run code generation
         working-directory: bc_project
         run: dart run build_runner build --delete-conflicting-outputs
-
-      - name: Verify generated files
-        run: |
-          echo "=== Generated .g.dart files ==="
-          find bc_project/lib -name "*.g.dart" | sort
-          echo "=== Count ==="
-          find bc_project/lib -name "*.g.dart" | wc -l
 
       - name: Build Debug APK
         working-directory: bc_project
