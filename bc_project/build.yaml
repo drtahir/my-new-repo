@@ -3,14 +3,13 @@ targets:
     builders:
       drift_dev:
         options:
-          # Generate type-safe queries
-          generate_connect_constructor: true
-          # Use named parameters for insertions
+          skip_verification_code: true
+          data_class_to_companions: true
+          apply_converters_on_variables: true
+          generate_values_in_copy_with: true
+          store_date_time_values_as_text: false
           named_parameters: true
-          # Compact query methods
-          compact_query_methods: true
-          # Null safety
-          null_safety: true
+          case_from_dart_to_sql: snake_case
       riverpod_generator:
         options:
           riverpod_version: 2
