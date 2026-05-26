@@ -32,45 +32,30 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
 
-      - name: Setup Gradle wrapper
+      - name: Setup Gradle wrapper using Flutter jar
         run: |
           mkdir -p bc_project/android/gradle/wrapper
-
-          # Try multiple sources for the jar
           JAR="bc_project/android/gradle/wrapper/gradle-wrapper.jar"
 
-          echo "Attempting download from gradle.org zip..."
-          curl -fsSL "https://services.gradle.org/distributions/gradle-8.9-bin.zip" \
-            -o /tmp/gradle-8.9.zip && \
-          unzip -o /tmp/gradle-8.9.zip "gradle-8.9/lib/gradle-wrapper-*.jar" -d /tmp/gradle-extract/ 2>/dev/null && \
-          find /tmp/gradle-extract -name "*.jar" | head -5 && \
-          cp $(find /tmp/gradle-extract -name "gradle-wrapper-*.jar" | head -1) "$JAR" 2>/dev/null || \
-          echo "zip extraction failed, trying direct download..."
+          # Find Flutter's own gradle-wrapper.jar
+          echo "=== Searching Flutter for gradle-wrapper.jar ==="
+          find $FLUTTER_ROOT -name "gradle-wrapper.jar" 2>/dev/null
 
-          # If jar still not valid, try direct GitHub raw
-          if [ ! -s "$JAR" ]; then
-            echo "Trying GitHub raw..."
-            curl -fsSL "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" \
-              -o "$JAR"
+          # Use Flutter's own jar - guaranteed compatible
+          FLUTTER_JAR=$(find $FLUTTER_ROOT -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+
+          if [ -n "$FLUTTER_JAR" ]; then
+            cp "$FLUTTER_JAR" "$JAR"
+            echo "Copied from Flutter: $FLUTTER_JAR"
+          else
+            echo "Flutter jar not found! Searching entire system..."
+            find / -name "gradle-wrapper.jar" 2>/dev/null | head -10
           fi
 
-          # If still not valid, use Flutter's own wrapper jar
-          if [ ! -s "$JAR" ]; then
-            echo "Using Flutter's bundled wrapper jar..."
-            FLUTTER_JAR=$(find $FLUTTER_ROOT -name "gradle-wrapper.jar" 2>/dev/null | head -1)
-            echo "Flutter jar: $FLUTTER_JAR"
-            if [ -n "$FLUTTER_JAR" ]; then
-              cp "$FLUTTER_JAR" "$JAR"
-            fi
-          fi
+          echo "Jar size: $(wc -c < $JAR 2>/dev/null || echo 'FILE MISSING')"
+          unzip -t "$JAR" > /dev/null 2>&1 && echo "JAR VALID" || echo "JAR INVALID"
 
-          echo "Final jar size: $(wc -c < $JAR) bytes"
-          file "$JAR"
-
-          # Verify it's a valid zip/jar
-          unzip -t "$JAR" > /dev/null 2>&1 && echo "JAR is valid" || echo "JAR IS CORRUPT"
-
-          # Fix gradlew JVM opts
+          # Fix gradlew
           python3 << 'PYEOF'
           import re
           path = 'bc_project/android/gradlew'
@@ -83,20 +68,20 @@ jobs:
           PYEOF
           chmod +x bc_project/android/gradlew
 
-          # Fix wrapper properties
-          cat > bc_project/android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip
-          networkTimeout=10000
-          PROPS
+          # Use wrapper properties matching Flutter's jar version
+          FLUTTER_GRADLE_VER=$(find $FLUTTER_ROOT -name "gradle-wrapper.properties" 2>/dev/null | head -1)
+          if [ -n "$FLUTTER_GRADLE_VER" ]; then
+            echo "=== Flutter's gradle-wrapper.properties ==="
+            cat "$FLUTTER_GRADLE_VER"
+            cp "$FLUTTER_GRADLE_VER" bc_project/android/gradle/wrapper/gradle-wrapper.properties
+          fi
 
-          echo "=== Final verification ==="
-          grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
-          ls -lh bc_project/android/gradle/wrapper/
+          echo "=== Our gradle-wrapper.properties ==="
           cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
+          echo "=== gradlew DEFAULT_JVM_OPTS ==="
+          grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
+          echo "=== All wrapper files ==="
+          ls -lh bc_project/android/gradle/wrapper/
 
       - name: Get Flutter dependencies
         working-directory: bc_project
