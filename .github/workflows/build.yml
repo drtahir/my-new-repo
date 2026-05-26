@@ -11,84 +11,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.4'
-          channel: stable
-          cache: false
-
-      - name: Write local.properties
-        run: |
-          echo "sdk.dir=$ANDROID_HOME" > bc_project/android/local.properties
-          echo "flutter.sdk=$FLUTTER_ROOT" >> bc_project/android/local.properties
-
-      - name: Replace Flutter internal gradlew with modern version
-        run: |
-          FLUTTER_GRADLEW="$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradlew"
-
-          echo "=== OLD Flutter gradlew ==="
-          cat "$FLUTTER_GRADLEW"
-
-          # Write modern gradlew that works with Java 17
-          cat > "$FLUTTER_GRADLEW" << 'GRADLEW'
-#!/bin/sh
-APP_NAME="Gradle"
-APP_BASE_NAME=`basename "$0"`
-DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'
-MAX_FD="maximum"
-
-warn() {
-    echo "$*"
-}
-
-die() {
-    echo
-    echo "$*"
-    echo
-    exit 1
-}
-
-if [ -z "$JAVA_HOME" ]; then
-    JAVACMD="java"
-else
-    JAVACMD="$JAVA_HOME/bin/java"
-fi
-
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-CLASSPATH="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.jar"
-
-exec "$JAVACMD" $DEFAULT_JVM_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
-GRADLEW
-
-          chmod +x "$FLUTTER_GRADLEW"
-
-          echo "=== NEW Flutter gradlew ==="
-          cat "$FLUTTER_GRADLEW"
-
-          # Also replace project gradlew
-          cp "$FLUTTER_GRADLEW" bc_project/android/gradlew
-          chmod +x bc_project/android/gradlew
-
-          # Setup wrapper jar
-          mkdir -p bc_project/android/gradle/wrapper
-          cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.jar" \
-             bc_project/android/gradle/wrapper/gradle-wrapper.jar
-          cp "$FLUTTER_ROOT/bin/cache/artifacts/gradle_wrapper/gradle/wrapper/gradle-wrapper.properties" \
-             bc_project/android/gradle/wrapper/gradle-wrapper.properties
-
-          echo "=== Verification ==="
-          ls -lh bc_project/android/gradle/wrapper/
-          cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
+          channel: 'stable'
 
       - name: Get Flutter dependencies
         working-directory: bc_project
@@ -100,11 +35,14 @@ GRADLEW
 
       - name: Build Debug APK
         working-directory: bc_project
-        run: flutter build apk --debug
+        run: |
+          cd android
+          chmod +x gradlew
+          cd ..
+          flutter build apk --debug
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: bc_project/build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 30
