@@ -37,53 +37,21 @@ jobs:
 
       - name: Fix Flutter gradlew and wrapper
         run: |
-          echo "=== Finding all Flutter gradle files ==="
-          find $FLUTTER_ROOT/bin/cache -name "gradle-wrapper.jar" 2>/dev/null
-          find $FLUTTER_ROOT/bin/cache -name "gradle-wrapper.properties" 2>/dev/null
-          find $FLUTTER_ROOT/bin/cache -name "gradlew" 2>/dev/null
-
-          FLUTTER_WRAPPER_DIR=$(find $FLUTTER_ROOT/bin/cache -name "gradle-wrapper.jar" 2>/dev/null | head -1 | xargs dirname)
           FLUTTER_GRADLEW=$(find $FLUTTER_ROOT/bin/cache -name "gradlew" 2>/dev/null | head -1)
-
-          echo "Wrapper dir: $FLUTTER_WRAPPER_DIR"
-          echo "Gradlew: $FLUTTER_GRADLEW"
-
-          # Write modern gradlew to Flutter cache
-          cat > "$FLUTTER_GRADLEW" << 'GRADLEW'
-#!/bin/sh
-DEFAULT_JVM_OPTS='-Xmx4096m -Xms512m'
-if [ -z "$JAVA_HOME" ]; then
-  JAVACMD="java"
-else
-  JAVACMD="$JAVA_HOME/bin/java"
-fi
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-CLASSPATH="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.jar"
-exec "$JAVACMD" $DEFAULT_JVM_OPTS $JAVA_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
-GRADLEW
+          FLUTTER_JAR=$(find $FLUTTER_ROOT/bin/cache -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+          FLUTTER_WRAPPER_DIR=$(dirname "$FLUTTER_JAR")
+          echo "Found gradlew: $FLUTTER_GRADLEW"
+          echo "Found jar: $FLUTTER_JAR"
+          printf '%s\n' '#!/bin/sh' 'DEFAULT_JVM_OPTS="-Xmx4096m -Xms512m"' 'if [ -z "$JAVA_HOME" ]; then JAVACMD="java"; else JAVACMD="$JAVA_HOME/bin/java"; fi' 'SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)' 'CLASSPATH="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.jar"' 'exec "$JAVACMD" $DEFAULT_JVM_OPTS $JAVA_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"' > "$FLUTTER_GRADLEW"
           chmod +x "$FLUTTER_GRADLEW"
-
-          # Copy to project
           cp "$FLUTTER_GRADLEW" bc_project/android/gradlew
           chmod +x bc_project/android/gradlew
-
-          # Copy jar and properties using discovered path
           mkdir -p bc_project/android/gradle/wrapper
-          cp "$FLUTTER_WRAPPER_DIR/gradle-wrapper.jar" bc_project/android/gradle/wrapper/gradle-wrapper.jar
-
-          # Write properties manually since path varies
-          cat > bc_project/android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
-distributionBase=GRADLE_USER_HOME
-distributionPath=wrapper/dists
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-all.zip
-PROPS
-
+          cp "$FLUTTER_JAR" bc_project/android/gradle/wrapper/gradle-wrapper.jar
+          printf '%s\n' 'distributionBase=GRADLE_USER_HOME' 'distributionPath=wrapper/dists' 'zipStoreBase=GRADLE_USER_HOME' 'zipStorePath=wrapper/dists' 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-all.zip' > bc_project/android/gradle/wrapper/gradle-wrapper.properties
           echo "=== Verification ==="
           grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
           ls -lh bc_project/android/gradle/wrapper/
-          cat bc_project/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Get Flutter dependencies
         working-directory: bc_project
