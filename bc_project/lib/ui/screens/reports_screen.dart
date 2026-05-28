@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../core/database/app_database.dart';
 import 'package:printing/printing.dart';
 import '../../core/providers.dart';
 import '../../core/utils/formatters.dart';
