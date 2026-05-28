@@ -48,7 +48,7 @@ jobs:
           chmod +x bc_project/android/gradlew
           mkdir -p bc_project/android/gradle/wrapper
           cp "$FLUTTER_JAR" bc_project/android/gradle/wrapper/gradle-wrapper.jar
-          printf '%s\n' 'distributionBase=GRADLE_USER_HOME' 'distributionPath=wrapper/dists' 'zipStoreBase=GRADLE_USER_HOME' 'zipStorePath=wrapper/dists' 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-all.zip' > bc_project/android/gradle/wrapper/gradle-wrapper.properties
+          printf '%s\n' 'distributionBase=GRADLE_USER_HOME' 'distributionPath=wrapper/dists' 'zipStoreBase=GRADLE_USER_HOME' 'zipStorePath=wrapper/dists' 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-all.zip' > bc_project/android/gradle/wrapper/gradle-wrapper.properties
           echo "=== Verification ==="
           grep "DEFAULT_JVM_OPTS" bc_project/android/gradlew
           ls -lh bc_project/android/gradle/wrapper/
