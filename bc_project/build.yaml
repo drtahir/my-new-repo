@@ -3,12 +3,13 @@ targets:
     builders:
       drift_dev:
         options:
+          generate_connect_constructor: true
+          named_parameters: true
           skip_verification_code: true
           data_class_to_companions: true
           apply_converters_on_variables: true
           generate_values_in_copy_with: true
           store_date_time_values_as_text: false
-          named_parameters: true
           case_from_dart_to_sql: snake_case
       riverpod_generator:
         options:
