@@ -1,5 +1,6 @@
 // lib/features/zakat/data/zakat_engine.dart
 import '../../../core/database/app_database.dart';
+import 'package:drift/drift.dart';
 
 /// Zakat Calculation Engine implementing Islamic finance rules
 ///
