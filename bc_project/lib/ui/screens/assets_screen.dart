@@ -280,6 +280,15 @@ class _AssetFormState extends ConsumerState<_AssetForm> {
     super.dispose();
   }
 
+  List<String> _getUnitsForType(String type) {
+    if (type == 'gold' || type == 'silver') {
+      return ['grams', 'tola', 'kg'];
+    } else if (type == 'land') {
+      return ['marla', 'kanal', 'sq ft', 'acres'];
+    }
+    return ['grams'];
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -301,7 +310,11 @@ class _AssetFormState extends ConsumerState<_AssetForm> {
                 value: t,
                 child: Text('${AppConstants.assetTypeIcons[t]} ${AppConstants.assetTypeLabels[t]}'),
               )).toList(),
-              onChanged: (v) => setState(() => _type = v!),
+              onChanged: (v) => setState(() {
+                _type = v!;
+                // Reset unit to first available unit for this type
+                _unit = _getUnitsForType(_type).first;
+              }),
             ),
             const SizedBox(height: 14),
 
@@ -352,9 +365,7 @@ class _AssetFormState extends ConsumerState<_AssetForm> {
                     child: DropdownButtonFormField<String>(
                       value: _unit,
                       decoration: _dec('Unit', Icons.straighten),
-                      items: (_type == 'gold' || _type == 'silver')
-                          ? ['grams', 'tola', 'kg'].map((u) => DropdownMenuItem(value: u, child: Text(u))).toList()
-                          : ['marla', 'kanal', 'sq ft', 'acres'].map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
+                      items: _getUnitsForType(_type).map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
                       onChanged: (v) => setState(() => _unit = v!),
                     ),
                   ),
